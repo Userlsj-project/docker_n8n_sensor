@@ -1,0 +1,77 @@
+services:
+
+  postgresql:
+    image: postgres:15
+    container_name: sensor-postgresql
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB}
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5433:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./postgresql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  python-simulator:
+    build:
+      context: ./python
+      dockerfile: Dockerfile
+    container_name: sensor-python
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST:     postgresql
+      POSTGRES_PORT:     5432
+      POSTGRES_DB:       ${POSTGRES_DB}
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      postgresql:
+        condition: service_healthy
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: sensor-n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - GENERIC_TIMEZONE=Asia/Seoul
+      - TZ=Asia/Seoul
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgresql:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: sensor-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    env_file: .env
+    environment:
+      GF_SECURITY_ADMIN_USER:     ${GF_SECURITY_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
+      GF_INSTALL_PLUGINS:         grafana-clock-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      postgresql:
+        condition: service_healthy
+
+volumes:
+  pg_data:
+  n8n_data:
+  grafana_data:
