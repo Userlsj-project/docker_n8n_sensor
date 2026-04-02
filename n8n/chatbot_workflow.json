@@ -1,0 +1,361 @@
+{
+  "name": "Sensor Chatbot",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "allowFileUploads": false,
+        "options": {}
+      },
+      "id": "node-chat-trigger",
+      "name": "Chat Trigger",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [240, 300],
+      "webhookId": "sensor-chatbot-001"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "cond-temp",
+                    "leftValue": "={{ $json.chatInput }}",
+                    "rightValue": "온도",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains",
+                      "name": "filter.operator.contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "온도"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "cond-humid",
+                    "leftValue": "={{ $json.chatInput }}",
+                    "rightValue": "습도",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains",
+                      "name": "filter.operator.contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "습도"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "cond-press",
+                    "leftValue": "={{ $json.chatInput }}",
+                    "rightValue": "기압",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains",
+                      "name": "filter.operator.contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "기압"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "cond-recent",
+                    "leftValue": "={{ $json.chatInput }}",
+                    "rightValue": "최근",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains",
+                      "name": "filter.operator.contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "최근"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "node-switch",
+      "name": "Route by Keyword",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT temperature, recorded_at FROM sensor_data ORDER BY recorded_at DESC LIMIT 1;"
+      },
+      "id": "node-pg-temp",
+      "name": "Query 온도",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [680, 120],
+      "credentials": {
+        "postgres": {
+          "id": "fbaoPCx3JifVcvQe",
+          "name": "SensorDB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT humidity, recorded_at FROM sensor_data ORDER BY recorded_at DESC LIMIT 1;"
+      },
+      "id": "node-pg-humid",
+      "name": "Query 습도",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [680, 240],
+      "credentials": {
+        "postgres": {
+          "id": "fbaoPCx3JifVcvQe",
+          "name": "SensorDB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT pressure, recorded_at FROM sensor_data ORDER BY recorded_at DESC LIMIT 1;"
+      },
+      "id": "node-pg-press",
+      "name": "Query 기압",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [680, 360],
+      "credentials": {
+        "postgres": {
+          "id": "fbaoPCx3JifVcvQe",
+          "name": "SensorDB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT temperature, humidity, pressure, recorded_at FROM sensor_data ORDER BY recorded_at DESC LIMIT 5;"
+      },
+      "id": "node-pg-recent",
+      "name": "Query 최근",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [680, 480],
+      "credentials": {
+        "postgres": {
+          "id": "fbaoPCx3JifVcvQe",
+          "name": "SensorDB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $input.first().json;\nconst t = parseFloat(row.temperature).toFixed(1);\nconst time = new Date(row.recorded_at).toLocaleString('ko-KR', {timeZone:'Asia/Seoul'});\nreturn [{ json: { output: `현재 온도는 ${t}°C 입니다. (측정 시간: ${time})` } }];"
+      },
+      "id": "node-code-temp",
+      "name": "Reply 온도",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 120]
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $input.first().json;\nconst h = parseFloat(row.humidity).toFixed(1);\nconst time = new Date(row.recorded_at).toLocaleString('ko-KR', {timeZone:'Asia/Seoul'});\nreturn [{ json: { output: `현재 습도는 ${h}% 입니다. (측정 시간: ${time})` } }];"
+      },
+      "id": "node-code-humid",
+      "name": "Reply 습도",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $input.first().json;\nconst p = parseFloat(row.pressure).toFixed(1);\nconst time = new Date(row.recorded_at).toLocaleString('ko-KR', {timeZone:'Asia/Seoul'});\nreturn [{ json: { output: `현재 기압은 ${p}hPa 입니다. (측정 시간: ${time})` } }];"
+      },
+      "id": "node-code-press",
+      "name": "Reply 기압",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 360]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\nlet result = '최근 5건의 센서 데이터:\\n';\nrows.forEach((item, i) => {\n  const d = item.json;\n  const t = parseFloat(d.temperature).toFixed(1);\n  const h = parseFloat(d.humidity).toFixed(1);\n  const p = parseFloat(d.pressure).toFixed(1);\n  const time = new Date(d.recorded_at).toLocaleString('ko-KR', {timeZone:'Asia/Seoul'});\n  result += `${i+1}. 온도: ${t}°C | 습도: ${h}% | 기압: ${p}hPa (${time})\\n`;\n});\nreturn [{ json: { output: result.trim() } }];"
+      },
+      "id": "node-code-recent",
+      "name": "Reply 최근",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 480]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-default",
+              "name": "output",
+              "value": "온도, 습도, 기압, 최근 중 하나를 물어보세요.\n예시: '지금 온도 알려줘', '습도는?', '최근 데이터 보여줘'",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-default",
+      "name": "Default Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [680, 600]
+    }
+  ],
+  "connections": {
+    "Chat Trigger": {
+      "main": [
+        [
+          {
+            "node": "Route by Keyword",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Keyword": {
+      "main": [
+        [
+          {
+            "node": "Query 온도",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Query 습도",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Query 기압",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Query 최근",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Default Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query 온도": {
+      "main": [
+        [
+          {
+            "node": "Reply 온도",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query 습도": {
+      "main": [
+        [
+          {
+            "node": "Reply 습도",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query 기압": {
+      "main": [
+        [
+          {
+            "node": "Reply 기압",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query 최근": {
+      "main": [
+        [
+          {
+            "node": "Reply 최근",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
